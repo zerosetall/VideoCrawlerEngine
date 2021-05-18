@@ -5,6 +5,9 @@ from binascii import crc32
 from requests.cookies import RequestsCookieJar, create_cookie
 import os
 from hashlib import sha256
+from typing import AnyStr, TypeVar, Optional
+import re
+
 NoneType = type(None)
 
 
@@ -140,3 +143,65 @@ def readable_file_size(byte_size, precise=3):
 
 def gen_token() -> str:
     return sha256(os.urandom(32)).hexdigest()
+
+
+class OneShotRegexMatcher:
+    def __init__(self):
+        self.full_pattern = re.compile(r"")
+        self.pattern_list = []
+        self.index_pattern = {}
+        self.next_index = 0
+
+    def add(self, pattern: AnyStr) -> bool:
+        """ 添加pattern,若成功添加，返回true。若已经存在则返回false。"""
+        if self._has_pattern(pattern):
+            return False
+        self.pattern_list.append(pattern)
+        self.full_pattern = re.compile("|".join([f'({p})' for p in self.pattern_list]))
+
+        # 设置pattern索引
+        self.index_pattern[self.next_index] = pattern
+        group_count = re.compile(pattern).groups
+        self.next_index += group_count + 1
+        return True
+
+    def _has_pattern(self, pattern: AnyStr) -> bool:
+        """ 返回是否有同样的pattern。"""
+        if pattern == self.full_pattern.pattern:
+            return True
+        elif re.match(
+            r"[|\b]%(pattern)[|\b]".format(pattern=pattern),
+            self.full_pattern.pattern
+        ):
+            return True
+        else:
+            return False
+
+    def match(self, string: AnyStr) -> Optional[AnyStr]:
+        """ 返回匹配的pattern。"""
+        result = self.full_pattern.match(string)
+        if result is None:
+            return None
+
+        for index, group in enumerate(result.groups()):
+            if group is None:
+                continue
+            pattern = self.index_pattern.get(index, None)
+            if pattern is None:
+                return None
+            else:
+                return pattern
+
+        return None
+
+
+if __name__ == '__main__':
+    regex = OneShotRegexMatcher()
+    regex.add(r"(\b|\w+\.)?baidu\.com")
+    regex.add(r"\bqq\.com")
+    res = regex.match("www.baidu.com")
+    print(res)
+    res = regex.match("qq.com")
+    print(res)
+    res = regex.match("www.qq.com")
+    print(res)
