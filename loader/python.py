@@ -67,5 +67,5 @@ class PythonPlugin(BasePlugin):
     def get_scopes(self):
         yield from self.local_scope.items()
 
-    def get_scope(self, name: str):
-        return self.local_scope[name]
+    def get_scope(self, name: str, default=None):
+        return self.local_scope.get(name, default)
